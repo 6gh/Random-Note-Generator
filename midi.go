@@ -9,25 +9,28 @@ import (
 	"gitlab.com/gomidi/midi/v2/smf"
 )
 
-func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, logger func(format string, a ...any)) []smf.Track {
+func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, trimNotes bool, logger func(format string, a ...any)) []smf.Track {
 	var (
-		tracks []smf.Track
+		tracks         []smf.Track
+		remainingNotes = noteCount
 	)
 
 	logger("generating notes")
 	for i := 0; i < noteCount; {
 		var nc int
-		if noteCount > maxNotesPerTrack {
+		if remainingNotes > maxNotesPerTrack {
 			nc = maxNotesPerTrack
+			remainingNotes = remainingNotes - maxNotesPerTrack
 			i = i + maxNotesPerTrack
 		} else {
-			nc = noteCount
+			nc = remainingNotes
+			remainingNotes = 0
 			i = i + noteCount
 		}
 
-		logger("generating track with %d notes", nc)
+		logger("generating track with %d notes | notes left: %d", nc, remainingNotes)
 
-		track := createTrack(nc, ticks, maxNoteLength, minNoteLength)
+		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes)
 
 		tracks = append(tracks, track)
 	}
@@ -36,7 +39,7 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 	return tracks
 }
 
-func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int) smf.Track {
+func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool) smf.Track {
 	var (
 		track  smf.Track
 		events []NoteEvent
@@ -48,7 +51,7 @@ func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int)
 		noteDuration := rand.Intn(maxNoteLength-minNoteLength) + minNoteLength // get a random duration between min length and the max length of a note
 		noteKey := uint8(rand.Intn(128))                                       // get a random key between 0 and 127 (C0 - G10)
 		noteEnd := noteStart + noteDuration                                    // calculate the end time
-		if noteEnd > ticks {
+		if trimNotes && noteEnd > ticks {                                      // only cut notes if cutNotes is true
 			noteEnd = ticks // if end time is greater than the length of the midi, set it to the length of the midi
 		}
 

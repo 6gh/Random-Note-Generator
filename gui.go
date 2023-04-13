@@ -77,15 +77,20 @@ func createGUI() {
 			// ticks, seconds, bars
 			LengthTXT := widget.NewSelect([]string{"MIDI Ticks", "MIDI Bars"}, func(string) {})
 
+			// whether to cut off notes that are longer than the length of the midi
+			TrimNotesTXT := widget.NewCheck("Cut Notes", func(bool) {})
+
 			// turn into form items
 			items := []*widget.FormItem{
 				widget.NewFormItem("Max Notes Per Track", MaxNotesTXT),
 				widget.NewFormItem("Length Type", LengthTXT),
+				widget.NewFormItem("Trim Notes", TrimNotesTXT),
 			}
 
 			// set default values
 			MaxNotesTXT.SetText(app.Preferences().StringWithFallback("maxNotesPerTrack", "1000"))
 			LengthTXT.SetSelected(app.Preferences().StringWithFallback("lengthType", "MIDI Ticks"))
+			TrimNotesTXT.SetChecked(app.Preferences().BoolWithFallback("trimNotes", true))
 
 			dialog.ShowForm("Settings", "Save", "Cancel", items, func(b bool) {
 				if !b {
@@ -95,6 +100,7 @@ func createGUI() {
 				// save values
 				app.Preferences().SetString("maxNotesPerTrack", MaxNotesTXT.Text)
 				app.Preferences().SetString("lengthType", LengthTXT.Selected)
+				app.Preferences().SetBool("trimNotes", TrimNotesTXT.Checked)
 			}, window)
 		}),
 	)
@@ -185,6 +191,7 @@ func createGUI() {
 			handleErr(err)
 			bpm, err := strconv.Atoi(BPMTXT.Text)
 			handleErr(err)
+			trimNotes := app.Preferences().BoolWithFallback("trimNotes", true)
 
 			lengthType := app.Preferences().StringWithFallback("lengthType", "MIDI Ticks")
 
@@ -200,13 +207,14 @@ func createGUI() {
 			BPMTXT.Disable()
 			window.SetTitle("Random Note Generator (Running...)")
 
-			OutputBox.SetText(OutputBox.Text + "creating tracks" + "\n")
+			OutputBox.SetText(fmt.Sprintf("creating tracks | nc: %d | len: %d | maxlen: %d | minlen: %d | notesper: %d | trimnotes: %t\n", noteCount, ticks, maxNoteLength, minNoteLength, maxNotesPerTrack, trimNotes))
 			tracks := createTracks(
 				noteCount,
 				ticks,
 				maxNoteLength,
 				minNoteLength,
 				maxNotesPerTrack,
+				trimNotes,
 				func(format string, args ...any) {
 					OutputBox.SetText(OutputBox.Text + fmt.Sprintf(format, args...) + "\n")
 				},
