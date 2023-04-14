@@ -1,7 +1,7 @@
 # Random Note Generator
 A simple tool to randomly generate notes
 
-![Preview of the GUI](https://i.imgur.com/Mlp5tnZm.png)
+![Preview of the GUI](https://i.imgur.com/Mlp5tnZ.png)
 
 ## Purpose
 
@@ -26,6 +26,8 @@ Click the cog at the bottom to set additional settings:
 - Max Notes Per Track - The number of notes that a single track can contain, before creating a new one
 - Length Type - Whether the `MIDI Length` should be in Ticks or Bars. If it is in ticks, the length will be dependent on the PPQ, and you will have to calculate it yourself. If it is in bars, the length will be translated to ticks for you
 - Trim Notes - Whether or not to trim the notes which go beyond the MIDI length
+- Min/Max Note Velocity - The minimum/maximum a note's velocity can be (if they are the same, there will be a constant velocity)
+- Note Channel - Changes what channel the notes will be generated in
 
 ## Building 
 

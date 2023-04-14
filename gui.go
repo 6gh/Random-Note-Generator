@@ -80,17 +80,31 @@ func createGUI() {
 			// whether to cut off notes that are longer than the length of the midi
 			TrimNotesChkInput := widget.NewCheck("Cut Notes", func(bool) {})
 
+			// note velocity
+			// both min and max
+			MinVelocityNumInput := createNumberInput(1, 127)
+			MaxVelocityNumInput := createNumberInput(1, 127)
+
+			// Channel to use from 1 - 16
+			ChannelSelectInput := widget.NewSelect([]string{"All (Skip Drums)", "All", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10 (Drums)", "11", "12", "13", "14", "15", "16"}, func(string) {})
+
 			// turn into form FormItems
 			FormItems := []*widget.FormItem{
 				widget.NewFormItem("Max Notes Per Track", MaxNotesNumInput),
 				widget.NewFormItem("Length Type", LengthSelectInput),
 				widget.NewFormItem("Trim Notes", TrimNotesChkInput),
+				widget.NewFormItem("Min Note Velocity", MinVelocityNumInput),
+				widget.NewFormItem("MaxNote Velocity", MaxVelocityNumInput),
+				widget.NewFormItem("Note Channel", ChannelSelectInput),
 			}
 
 			// set default values
 			MaxNotesNumInput.SetText(app.Preferences().StringWithFallback("maxNotesPerTrack", "1000"))
 			LengthSelectInput.SetSelected(app.Preferences().StringWithFallback("lengthType", "MIDI Ticks"))
 			TrimNotesChkInput.SetChecked(app.Preferences().BoolWithFallback("trimNotes", true))
+			MinVelocityNumInput.SetText(app.Preferences().StringWithFallback("minNoteVelocity", "50"))
+			MaxVelocityNumInput.SetText(app.Preferences().StringWithFallback("maxNoteVelocity", "100"))
+			ChannelSelectInput.SetSelected(app.Preferences().StringWithFallback("noteChannel", "16"))
 
 			dialog.ShowForm("Settings", "Save", "Cancel", FormItems, func(b bool) {
 				if !b {
@@ -101,6 +115,9 @@ func createGUI() {
 				app.Preferences().SetString("maxNotesPerTrack", MaxNotesNumInput.Text)
 				app.Preferences().SetString("lengthType", LengthSelectInput.Selected)
 				app.Preferences().SetBool("trimNotes", TrimNotesChkInput.Checked)
+				app.Preferences().SetString("minNoteVelocity", MinVelocityNumInput.Text)
+				app.Preferences().SetString("maxNoteVelocity", MaxVelocityNumInput.Text)
+				app.Preferences().SetString("noteChannel", ChannelSelectInput.Selected)
 			}, window)
 		}),
 	)
@@ -178,6 +195,15 @@ func createGUI() {
 			errors = append(errors, "notes: "+err.Error())
 		}
 
+		// TODO: maybe add this check before it was set in the first place? but don't know how yet lol
+		minVelocity, err := strconv.Atoi(app.Preferences().StringWithFallback("minNoteVelocity", "50"))
+		handleErr(err)
+		maxVelocity, err := strconv.Atoi(app.Preferences().StringWithFallback("maxNoteVelocity", "100"))
+		handleErr(err)
+		if minVelocity > maxVelocity {
+			errors = append(errors, "velocity (other settings): min cannot be greater than max")
+		}
+
 		if len(errors) > 0 {
 			// if there are any errors show them in a dialog, and do not continue
 			dialog.ShowInformation("Invalid Options", strings.Join(errors, "\n"), window)
@@ -201,6 +227,7 @@ func createGUI() {
 			bpm, err := strconv.Atoi(BPMNumInput.Text)
 			handleErr(err)
 			trimNotes := app.Preferences().BoolWithFallback("trimNotes", true)
+			noteChannel := app.Preferences().StringWithFallback("noteChannel", "16")
 
 			// if user selected MIDI Bars, convert the bars to ticks
 			lengthType := app.Preferences().StringWithFallback("lengthType", "MIDI Ticks")
@@ -227,13 +254,16 @@ func createGUI() {
 			// log the values
 			OutputLogTxt.SetText(
 				fmt.Sprintf(
-					"creating tracks | nc: %d | len: %d | maxlen: %d | minlen: %d | notesper: %d | trimnotes: %t\n",
+					"creating tracks | nc: %d | len: %d | maxlen: %d | minlen: %d | notesper: %d | trimnotes: %t | velocity: %d-%d | channel: %v\n",
 					noteCount,
 					ticks,
 					maxNoteLength,
 					minNoteLength,
 					maxNotesPerTrack,
 					trimNotes,
+					minVelocity,
+					maxVelocity,
+					noteChannel,
 				),
 			)
 
@@ -245,6 +275,9 @@ func createGUI() {
 				minNoteLength,
 				maxNotesPerTrack,
 				trimNotes,
+				minVelocity,
+				maxVelocity,
+				noteChannel,
 				func(format string, args ...any) {
 					OutputLogTxt.SetText(OutputLogTxt.Text + fmt.Sprintf(format, args...) + "\n")
 				},

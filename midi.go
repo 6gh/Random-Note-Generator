@@ -10,14 +10,77 @@ import (
 )
 
 // Creates an array of tracks
-func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, trimNotes bool, logger func(format string, a ...any)) []smf.Track {
+func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, trimNotes bool, minVelocity int, maxVelocity int, noteChannel string, logger func(format string, a ...any)) []smf.Track {
 	var (
-		tracks         []smf.Track
-		remainingNotes = noteCount
+		tracks               []smf.Track
+		remainingNotes       = noteCount
+		specifiedChannel     = -1
+		currentChannelNumber = 0
+		trackCount           = 0
 	)
+
+	// get channel
+	// if noteChannel is "All (Skip Drums)", set channel to -1
+	// if noteChannel is "All", set channel to -2
+	switch noteChannel {
+	case "All (Skip Drums)":
+		specifiedChannel = -1
+	case "All":
+		specifiedChannel = -2
+	case "1":
+		specifiedChannel = 0
+	case "2":
+		specifiedChannel = 1
+	case "3":
+		specifiedChannel = 2
+	case "4":
+		specifiedChannel = 3
+	case "5":
+		specifiedChannel = 4
+	case "6":
+		specifiedChannel = 5
+	case "7":
+		specifiedChannel = 6
+	case "8":
+		specifiedChannel = 7
+	case "9":
+		specifiedChannel = 8
+	case "10 (Drums)":
+		specifiedChannel = 9
+	case "11":
+		specifiedChannel = 10
+	case "12":
+		specifiedChannel = 11
+	case "13":
+		specifiedChannel = 12
+	case "14":
+		specifiedChannel = 13
+	case "15":
+		specifiedChannel = 14
+	case "16":
+		specifiedChannel = 15
+	}
 
 	logger("generating notes")
 	for i := 0; i < noteCount; {
+		if specifiedChannel == -1 {
+			// user selected "All (Skip Drums)"
+			// set the current channel based the current track number
+			// if the current channel is 9 (drums), skip it
+			currentChannelNumber = trackCount % 16
+			if currentChannelNumber == 9 {
+				currentChannelNumber++ // skip drums
+				trackCount++           // increment track count to avoid double ch 11
+			}
+		} else if specifiedChannel == -2 {
+			// user selected "All"
+			// set the current channel based the current track number
+			currentChannelNumber = trackCount % 16
+		} else {
+			// user selected a specific channel
+			currentChannelNumber = specifiedChannel
+		}
+
 		// calculate the number of notes to add to the track
 		var nc int
 		if remainingNotes > maxNotesPerTrack {
@@ -34,10 +97,11 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 			i = i + noteCount
 		}
 
-		logger("generating track with %d notes | notes left: %d", nc, remainingNotes)
+		logger("generating track (ch %d) with %d notes | notes left: %d", currentChannelNumber+1, nc, remainingNotes)
 
-		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes)
+		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes, minVelocity, maxVelocity, uint8(currentChannelNumber))
 		tracks = append(tracks, track)
+		trackCount++
 	}
 
 	logger("generated %d tracks", len(tracks))
@@ -45,7 +109,7 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 }
 
 // Creates a track, with a specified number of notes
-func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool) smf.Track {
+func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool, minVelocity int, maxVelocity int, channel uint8) smf.Track {
 	var (
 		track  smf.Track
 		events []NoteEvent
@@ -86,9 +150,15 @@ func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int,
 		}
 
 		if event.noteOn { // add note on event
-			track.Add(tick, midi.NoteOn(0, event.key, 127))
+			var noteVelocity int
+			if minVelocity == maxVelocity { // if min and max velocity are the same, set the velocity to that
+				noteVelocity = minVelocity
+			} else {
+				noteVelocity = rand.Intn(maxVelocity-minVelocity) + minVelocity // get a random velocity between min and max
+			}
+			track.Add(tick, midi.NoteOn(channel, event.key, uint8(noteVelocity)))
 		} else { // add note off event
-			track.Add(tick, midi.NoteOff(0, event.key))
+			track.Add(tick, midi.NoteOff(channel, event.key))
 		}
 	}
 	track.Close(0)
