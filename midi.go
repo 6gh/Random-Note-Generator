@@ -12,12 +12,73 @@ import (
 // Creates an array of tracks
 func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, trimNotes bool, velocity uint8, noteChannel string, logger func(format string, a ...any)) []smf.Track {
 	var (
-		tracks         []smf.Track
-		remainingNotes = noteCount
+		tracks               []smf.Track
+		remainingNotes       = noteCount
+		specifiedChannel     = -1
+		currentChannelNumber = 0
 	)
+
+	// get channel
+	// if noteChannel is "All (Skip Drums)", set channel to -1
+	// if noteChannel is "All", set channel to -2
+	switch noteChannel {
+	case "All (Skip Drums)":
+		specifiedChannel = -1
+	case "All":
+		specifiedChannel = -2
+	case "1":
+		specifiedChannel = 0
+	case "2":
+		specifiedChannel = 1
+	case "3":
+		specifiedChannel = 2
+	case "4":
+		specifiedChannel = 3
+	case "5":
+		specifiedChannel = 4
+	case "6":
+		specifiedChannel = 5
+	case "7":
+		specifiedChannel = 6
+	case "8":
+		specifiedChannel = 7
+	case "9":
+		specifiedChannel = 8
+	case "10 (Drums)":
+		specifiedChannel = 9
+	case "11":
+		specifiedChannel = 10
+	case "12":
+		specifiedChannel = 11
+	case "13":
+		specifiedChannel = 12
+	case "14":
+		specifiedChannel = 13
+	case "15":
+		specifiedChannel = 14
+	case "16":
+		specifiedChannel = 15
+	}
 
 	logger("generating notes")
 	for i := 0; i < noteCount; {
+		if specifiedChannel == -1 {
+			// user selected "All (Skip Drums)"
+			// set the current channel based the current track number
+			// if the current channel is 9 (drums), skip it
+			currentChannelNumber = len(tracks) % 15
+			if currentChannelNumber == 9 {
+				currentChannelNumber++ // skip drums
+			}
+		} else if specifiedChannel == -2 {
+			// user selected "All"
+			// set the current channel based the current track number
+			currentChannelNumber = len(tracks) % 15
+		} else {
+			// user selected a specific channel
+			currentChannelNumber = specifiedChannel
+		}
+
 		// calculate the number of notes to add to the track
 		var nc int
 		if remainingNotes > maxNotesPerTrack {
@@ -34,9 +95,9 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 			i = i + noteCount
 		}
 
-		logger("generating track with %d notes | notes left: %d", nc, remainingNotes)
+		logger("generating track (ch %d) with %d notes | notes left: %d", currentChannelNumber, nc, remainingNotes)
 
-		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes, velocity, noteChannel)
+		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes, velocity, uint8(currentChannelNumber))
 		tracks = append(tracks, track)
 	}
 
@@ -45,56 +106,11 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 }
 
 // Creates a track, with a specified number of notes
-func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool, velocity uint8, noteChannel string) smf.Track {
+func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool, velocity uint8, channel uint8) smf.Track {
 	var (
 		track  smf.Track
 		events []NoteEvent
 	)
-
-	// get channel
-	// if noteChannel is "All (Skip Drums)", set channel to -1
-	// if noteChannel is "All", set channel to -2
-	channel := -1
-
-	switch noteChannel {
-	// TODO: add All option
-	// case "All (Skip Drums)":
-	// 	channel = -1
-	// case "All":
-	// 	channel = -2
-	case "1":
-		channel = 0
-	case "2":
-		channel = 1
-	case "3":
-		channel = 2
-	case "4":
-		channel = 3
-	case "5":
-		channel = 4
-	case "6":
-		channel = 5
-	case "7":
-		channel = 6
-	case "8":
-		channel = 7
-	case "9":
-		channel = 8
-	case "10 (Drums)":
-		channel = 9
-	case "11":
-		channel = 10
-	case "12":
-		channel = 11
-	case "13":
-		channel = 12
-	case "14":
-		channel = 13
-	case "15":
-		channel = 14
-	case "16":
-		channel = 15
-	}
 
 	// create notes
 	for i := 0; i < noteCount; i++ {
@@ -108,8 +124,8 @@ func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int,
 
 		// add note event
 		// notes = append(notes, Notes{uint32(noteStart), uint32(noteEnd), noteKey})
-		events = append(events, NoteEvent{uint32(noteStart), noteKey, true, uint8(channel)})
-		events = append(events, NoteEvent{uint32(noteEnd), noteKey, false, uint8(channel)})
+		events = append(events, NoteEvent{uint32(noteStart), noteKey, true})
+		events = append(events, NoteEvent{uint32(noteEnd), noteKey, false})
 	}
 
 	// sort notes by start time
@@ -131,9 +147,9 @@ func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int,
 		}
 
 		if event.noteOn { // add note on event
-			track.Add(tick, midi.NoteOn(event.channel, event.key, velocity))
+			track.Add(tick, midi.NoteOn(channel, event.key, velocity))
 		} else { // add note off event
-			track.Add(tick, midi.NoteOff(event.channel, event.key))
+			track.Add(tick, midi.NoteOff(channel, event.key))
 		}
 	}
 	track.Close(0)
@@ -178,10 +194,9 @@ func createMIDI(midiPath string, ppq int, bpm int, tracks []smf.Track, callback 
 }
 
 type NoteEvent struct {
-	tick    uint32
-	key     uint8
-	noteOn  bool
-	channel uint8
+	tick   uint32
+	key    uint8
+	noteOn bool
 }
 
 type EventSorter []NoteEvent

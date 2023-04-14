@@ -84,8 +84,7 @@ func createGUI() {
 			VelocityNumInput := createNumberInput(1, 127)
 
 			// Channel to use from 1 - 16
-			// TODO: "All (Skip Drums)", "All"
-			ChannelSelectInput := widget.NewSelect([]string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10 (Drums)", "11", "12", "13", "14", "15", "16"}, func(string) {})
+			ChannelSelectInput := widget.NewSelect([]string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10 (Drums)", "11", "12", "13", "14", "15", "16", "All (Skip Drums)", "All"}, func(string) {})
 
 			// turn into form FormItems
 			FormItems := []*widget.FormItem{
