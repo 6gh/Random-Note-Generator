@@ -10,7 +10,7 @@ import (
 )
 
 // Creates an array of tracks
-func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, trimNotes bool, logger func(format string, a ...any)) []smf.Track {
+func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, trimNotes bool, velocity uint8, logger func(format string, a ...any)) []smf.Track {
 	var (
 		tracks         []smf.Track
 		remainingNotes = noteCount
@@ -36,7 +36,7 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 
 		logger("generating track with %d notes | notes left: %d", nc, remainingNotes)
 
-		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes)
+		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes, velocity)
 		tracks = append(tracks, track)
 	}
 
@@ -45,7 +45,7 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 }
 
 // Creates a track, with a specified number of notes
-func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool) smf.Track {
+func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool, velocity uint8) smf.Track {
 	var (
 		track  smf.Track
 		events []NoteEvent
@@ -86,7 +86,7 @@ func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int,
 		}
 
 		if event.noteOn { // add note on event
-			track.Add(tick, midi.NoteOn(0, event.key, 127))
+			track.Add(tick, midi.NoteOn(0, event.key, velocity))
 		} else { // add note off event
 			track.Add(tick, midi.NoteOff(0, event.key))
 		}

@@ -80,17 +80,22 @@ func createGUI() {
 			// whether to cut off notes that are longer than the length of the midi
 			TrimNotesChkInput := widget.NewCheck("Cut Notes", func(bool) {})
 
+			// note velocity
+			VelocityNumInput := createNumberInput(1, 127)
+
 			// turn into form FormItems
 			FormItems := []*widget.FormItem{
 				widget.NewFormItem("Max Notes Per Track", MaxNotesNumInput),
 				widget.NewFormItem("Length Type", LengthSelectInput),
 				widget.NewFormItem("Trim Notes", TrimNotesChkInput),
+				widget.NewFormItem("Note Velocity", VelocityNumInput),
 			}
 
 			// set default values
 			MaxNotesNumInput.SetText(app.Preferences().StringWithFallback("maxNotesPerTrack", "1000"))
 			LengthSelectInput.SetSelected(app.Preferences().StringWithFallback("lengthType", "MIDI Ticks"))
 			TrimNotesChkInput.SetChecked(app.Preferences().BoolWithFallback("trimNotes", true))
+			VelocityNumInput.SetText(app.Preferences().StringWithFallback("noteVelocity", "1"))
 
 			dialog.ShowForm("Settings", "Save", "Cancel", FormItems, func(b bool) {
 				if !b {
@@ -101,6 +106,7 @@ func createGUI() {
 				app.Preferences().SetString("maxNotesPerTrack", MaxNotesNumInput.Text)
 				app.Preferences().SetString("lengthType", LengthSelectInput.Selected)
 				app.Preferences().SetBool("trimNotes", TrimNotesChkInput.Checked)
+				app.Preferences().SetString("noteVelocity", VelocityNumInput.Text)
 			}, window)
 		}),
 	)
@@ -201,6 +207,8 @@ func createGUI() {
 			bpm, err := strconv.Atoi(BPMNumInput.Text)
 			handleErr(err)
 			trimNotes := app.Preferences().BoolWithFallback("trimNotes", true)
+			noteVelocity, err := strconv.Atoi(app.Preferences().StringWithFallback("noteVelocity", "1"))
+			handleErr(err)
 
 			// if user selected MIDI Bars, convert the bars to ticks
 			lengthType := app.Preferences().StringWithFallback("lengthType", "MIDI Ticks")
@@ -211,6 +219,15 @@ func createGUI() {
 				// ppq is the number of ticks per quarter note, so we need to multiply it by 4
 				// ticks = bars * ppq * 4
 				ticks = int(float64(ticks) * float64(ppq) * 4)
+			}
+
+			// if somehow the velocity is less than 1, set it to 1
+			if noteVelocity < 1 {
+				noteVelocity = 1
+			}
+			// if somehow the velocity is greater than 127, set it to 127
+			if noteVelocity > 127 {
+				noteVelocity = 127
 			}
 
 			// disable all inputs
@@ -227,13 +244,14 @@ func createGUI() {
 			// log the values
 			OutputLogTxt.SetText(
 				fmt.Sprintf(
-					"creating tracks | nc: %d | len: %d | maxlen: %d | minlen: %d | notesper: %d | trimnotes: %t\n",
+					"creating tracks | nc: %d | len: %d | maxlen: %d | minlen: %d | notesper: %d | trimnotes: %t | velocity: %d\n",
 					noteCount,
 					ticks,
 					maxNoteLength,
 					minNoteLength,
 					maxNotesPerTrack,
 					trimNotes,
+					noteVelocity,
 				),
 			)
 
@@ -245,6 +263,7 @@ func createGUI() {
 				minNoteLength,
 				maxNotesPerTrack,
 				trimNotes,
+				uint8(noteVelocity),
 				func(format string, args ...any) {
 					OutputLogTxt.SetText(OutputLogTxt.Text + fmt.Sprintf(format, args...) + "\n")
 				},
