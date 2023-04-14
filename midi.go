@@ -10,7 +10,7 @@ import (
 )
 
 // Creates an array of tracks
-func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, trimNotes bool, velocity uint8, noteChannel string, logger func(format string, a ...any)) []smf.Track {
+func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, trimNotes bool, minVelocity int, maxVelocity int, noteChannel string, logger func(format string, a ...any)) []smf.Track {
 	var (
 		tracks               []smf.Track
 		remainingNotes       = noteCount
@@ -99,7 +99,7 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 
 		logger("generating track (ch %d) with %d notes | notes left: %d", currentChannelNumber+1, nc, remainingNotes)
 
-		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes, velocity, uint8(currentChannelNumber))
+		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes, minVelocity, maxVelocity, uint8(currentChannelNumber))
 		tracks = append(tracks, track)
 		trackCount++
 	}
@@ -109,7 +109,7 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 }
 
 // Creates a track, with a specified number of notes
-func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool, velocity uint8, channel uint8) smf.Track {
+func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool, minVelocity int, maxVelocity int, channel uint8) smf.Track {
 	var (
 		track  smf.Track
 		events []NoteEvent
@@ -150,7 +150,13 @@ func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int,
 		}
 
 		if event.noteOn { // add note on event
-			track.Add(tick, midi.NoteOn(channel, event.key, velocity))
+			var noteVelocity int
+			if minVelocity == maxVelocity { // if min and max velocity are the same, set the velocity to that
+				noteVelocity = minVelocity
+			} else {
+				noteVelocity = rand.Intn(maxVelocity-minVelocity) + minVelocity // get a random velocity between min and max
+			}
+			track.Add(tick, midi.NoteOn(channel, event.key, uint8(noteVelocity)))
 		} else { // add note off event
 			track.Add(tick, midi.NoteOff(channel, event.key))
 		}
