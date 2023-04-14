@@ -16,6 +16,7 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 		remainingNotes       = noteCount
 		specifiedChannel     = -1
 		currentChannelNumber = 0
+		trackCount           = 0
 	)
 
 	// get channel
@@ -66,14 +67,15 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 			// user selected "All (Skip Drums)"
 			// set the current channel based the current track number
 			// if the current channel is 9 (drums), skip it
-			currentChannelNumber = len(tracks) % 15
+			currentChannelNumber = trackCount % 16
 			if currentChannelNumber == 9 {
 				currentChannelNumber++ // skip drums
+				trackCount++           // increment track count to avoid double ch 11
 			}
 		} else if specifiedChannel == -2 {
 			// user selected "All"
 			// set the current channel based the current track number
-			currentChannelNumber = len(tracks) % 15
+			currentChannelNumber = trackCount % 16
 		} else {
 			// user selected a specific channel
 			currentChannelNumber = specifiedChannel
@@ -95,10 +97,11 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 			i = i + noteCount
 		}
 
-		logger("generating track (ch %d) with %d notes | notes left: %d", currentChannelNumber, nc, remainingNotes)
+		logger("generating track (ch %d) with %d notes | notes left: %d", currentChannelNumber+1, nc, remainingNotes)
 
 		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes, velocity, uint8(currentChannelNumber))
 		tracks = append(tracks, track)
+		trackCount++
 	}
 
 	logger("generated %d tracks", len(tracks))
