@@ -9,26 +9,34 @@ import (
 	"gitlab.com/gomidi/midi/v2/smf"
 )
 
-func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, logger func(format string, a ...any)) []smf.Track {
+// Creates an array of tracks
+func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int, maxNotesPerTrack int, trimNotes bool, logger func(format string, a ...any)) []smf.Track {
 	var (
-		tracks []smf.Track
+		tracks         []smf.Track
+		remainingNotes = noteCount
 	)
 
 	logger("generating notes")
 	for i := 0; i < noteCount; {
+		// calculate the number of notes to add to the track
 		var nc int
-		if noteCount > maxNotesPerTrack {
+		if remainingNotes > maxNotesPerTrack {
+			// if there are more notes left than the max notes per track, set the number of notes to the max notes per track
+			// this generates a track with the max notes per track
 			nc = maxNotesPerTrack
+			remainingNotes = remainingNotes - maxNotesPerTrack
 			i = i + maxNotesPerTrack
 		} else {
-			nc = noteCount
+			// if there are less notes left, or equal to, the max notes per track, set the remaining notes to 0
+			// this generates a track will all the notes left
+			nc = remainingNotes
+			remainingNotes = 0
 			i = i + noteCount
 		}
 
-		logger("generating track with %d notes", nc)
+		logger("generating track with %d notes | notes left: %d", nc, remainingNotes)
 
-		track := createTrack(nc, ticks, maxNoteLength, minNoteLength)
-
+		track := createTrack(nc, ticks, maxNoteLength, minNoteLength, trimNotes)
 		tracks = append(tracks, track)
 	}
 
@@ -36,7 +44,8 @@ func createTracks(noteCount int, ticks int, maxNoteLength int, minNoteLength int
 	return tracks
 }
 
-func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int) smf.Track {
+// Creates a track, with a specified number of notes
+func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int, trimNotes bool) smf.Track {
 	var (
 		track  smf.Track
 		events []NoteEvent
@@ -48,7 +57,7 @@ func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int)
 		noteDuration := rand.Intn(maxNoteLength-minNoteLength) + minNoteLength // get a random duration between min length and the max length of a note
 		noteKey := uint8(rand.Intn(128))                                       // get a random key between 0 and 127 (C0 - G10)
 		noteEnd := noteStart + noteDuration                                    // calculate the end time
-		if noteEnd > ticks {
+		if trimNotes && noteEnd > ticks {                                      // only cut notes if cutNotes is true
 			noteEnd = ticks // if end time is greater than the length of the midi, set it to the length of the midi
 		}
 
@@ -63,19 +72,22 @@ func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int)
 
 	// iterate through notes again
 	for i := 0; i < len(events); i++ {
-		event := events[i]
+		// this is done because the midi library uses a relative tick system to add events
+		// (ticks start from the previous event's end tick)
+		// so we need to calculate the difference between the current note start and the previous note end
+		event := events[i] // get the current note
+
 		var tick uint32
-		if i > 0 {
-			prevNote := events[i-1]
+		if i > 0 { // if this is not the first note
+			prevNote := events[i-1] // get the previous note
 			tick = event.tick - prevNote.tick
-		} else {
+		} else { // if this is the first note
 			tick = event.tick
 		}
 
-		// add note on event
-		if event.noteOn {
+		if event.noteOn { // add note on event
 			track.Add(tick, midi.NoteOn(0, event.key, 127))
-		} else {
+		} else { // add note off event
 			track.Add(tick, midi.NoteOff(0, event.key))
 		}
 	}
@@ -83,6 +95,7 @@ func createTrack(noteCount int, ticks int, maxNoteLength int, minNoteLength int)
 	return track
 }
 
+// Creates a midi file, adding the tracks given
 func createMIDI(midiPath string, ppq int, bpm int, tracks []smf.Track, callback func()) {
 	// create vars
 	var (
@@ -93,27 +106,30 @@ func createMIDI(midiPath string, ppq int, bpm int, tracks []smf.Track, callback 
 
 	// set midi data
 	// ppq, meta track
-	midiData.TimeFormat = resolution
-	firstTrack.Add(0, smf.MetaTrackSequenceName(""))
-	firstTrack.Add(0, smf.MetaTempo(float64(bpm)))
+	midiData.TimeFormat = resolution                 // set ppq
+	firstTrack.Add(0, smf.MetaTrackSequenceName("")) // add a blank track name
+	firstTrack.Add(0, smf.MetaTempo(float64(bpm)))   // set bpm
 	firstTrack.Close(0)
 	midiData.Add(firstTrack)
 
-	// add tracks
+	// add all tracks provided
 	for i := 0; i < len(tracks); i++ {
 		midiData.Add(tracks[i])
 	}
 
-	// write the midi file
+	// open, or create, the midi file
 	file, err := os.OpenFile(midiPath, os.O_CREATE|os.O_WRONLY, 0644)
 	handleErr(err)
 
+	// write the midi data to the file
 	_, err = midiData.WriteTo(file)
 	handleErr(err)
 
+	// close the file
 	err = file.Close()
 	handleErr(err)
-	callback()
+
+	callback() // call the callback function
 }
 
 type NoteEvent struct {
