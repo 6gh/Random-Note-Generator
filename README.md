@@ -1,6 +1,8 @@
 # Random Note Generator
 A simple tool to randomly generate notes
 
+![Preview of the GUI](https://i.imgur.com/Mlp5tnZm.png)
+
 ## Purpose
 
 This project is to quickly randomly generate a MIDI file with a specified number of notes. In [Black MIDI](https://en.wikipedia.org/wiki/Black_Midi) there are many times when you need random notes to reach an exact note count. This aims to help out in that.
@@ -15,14 +17,15 @@ Open the program and set your settings:
 - Output - The output path to your MIDI. Must end in .mid and can be relative pathing
 - PPQ - The PPQ of the output MIDI
 - BPM - The BPM of the output MIDI
-- MIDI Length - How long the MIDI can be, in ticks or bars (see below). All notes will be cut off at the max length (if it goes past the length)
+- MIDI Length - How long the MIDI can be, in ticks or bars (see below). All notes will be cut off at the max length, if trim notes is true (see below)
 - Notes - The amount of notes you want to generate
 - Min Note Length - The shortest a random note can be in ticks
 - Max Note Length - The longest a random note can be in ticks
 
 Click the cog at the bottom to set additional settings:
 - Max Notes Per Track - The number of notes that a single track can contain, before creating a new one
-- Length Type - Whether the `MIDI Length` should be in Ticks or Bars. If it is in ticks, the length will be dependent on the PPQ, and you will have to calculate it yourself. If it is in bars, the length will be translated to ticks for you.
+- Length Type - Whether the `MIDI Length` should be in Ticks or Bars. If it is in ticks, the length will be dependent on the PPQ, and you will have to calculate it yourself. If it is in bars, the length will be translated to ticks for you
+- Trim Notes - Whether or not to trim the notes which go beyond the MIDI length
 
 ## Building 
 
